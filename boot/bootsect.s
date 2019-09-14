@@ -24,6 +24,7 @@ SYSSIZE = 0x3000
 
 ! BIOS 会将这份文件载入到 0x7c00 处
 ! 首先将自身挪到 0x90000，然后跳转过去，接着将 setup 载入到 0x90200 处
+! 载入完成后就跳转到 setup 的入口
 
 .globl begtext, begdata, begbss, endtext, enddata, endbss
 .text
@@ -117,10 +118,14 @@ ok_load_setup:
 ! ok, we've written the message, now
 ! we want to load the system (at 0x10000)
 
+! 将 system 模块载入到 0x10000 处
+! system 模块其实就是 boot/head.s 跟 init/main.c
+! 具体可以看 /Makefile 文件
+
 	mov	ax,#SYSSEG
 	mov	es,ax		! segment of 0x010000
 	call	read_it
-	call	kill_motor 	! 关闭软驱的电机，不过我不清楚为什么要有这一步
+	call	kill_motor 	! TODO: 关闭软驱的电机，不过我不清楚为什么要有这一步
 
 ! After that we check which root-device to use. If the device is
 ! defined (!= 0), nothing is done and the given device is used.
@@ -171,6 +176,7 @@ die:
 	! 0x1000 & 0x0fff = 0, ZF=1
 	! 所以这里不会进入死循环 (ZF=0 才会死循环)
 	! 以这种方式检查 es 是否与 64KiB 对齐
+	! TODO: 不清楚为什么一定要对齐
 	xor bx,bx		! bx is starting address within segment
 	! 下边就懒得读了，意义不大，就是利用 int 0x13 读数据而已
 rp_read:
