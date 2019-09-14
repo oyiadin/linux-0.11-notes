@@ -8,7 +8,7 @@ SYSSIZE = 0x3000
 !	bootsect.s		(C) 1991 Linus Torvalds
 !
 ! bootsect.s is loaded at 0x7c00 by the bios-startup routines, and moves
-! iself out of the way to address 0x90000, and jumps there.
+! itself out of the way to address 0x90000, and jumps there.
 !
 ! It then loads 'setup' directly after itself (0x90200), and the system
 ! at 0x10000, using BIOS interrupts. 
@@ -22,6 +22,9 @@ SYSSIZE = 0x3000
 ! read errors will result in a unbreakable loop. Reboot by hand. It
 ! loads pretty fast by getting whole sectors at a time whenever possible.
 
+! BIOS 会将这份文件载入到 0x7c00 处
+! 首先将自身挪到 0x90000，然后跳转过去，接着将 setup 载入到 0x90200 处
+
 .globl begtext, begdata, begbss, endtext, enddata, endbss
 .text
 begtext:
@@ -32,6 +35,7 @@ begbss:
 .text
 
 SETUPLEN = 4				! nr of setup-sectors
+! 下列数值是段值，所以要 <<4，得到 0x7c00
 BOOTSEG  = 0x07c0			! original address of boot-sector
 INITSEG  = 0x9000			! we move boot here - out of the way
 SETUPSEG = 0x9020			! setup starts here
@@ -41,6 +45,7 @@ ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading
 ! ROOT_DEV:	0x000 - same type of floppy as boot.
 !		0x301 - first partition on first drive etc
 ROOT_DEV = 0x306
+! 会被放到本文件末尾的 root_dev 里
 
 entry start
 start:
@@ -49,20 +54,23 @@ start:
 	mov	ax,#INITSEG
 	mov	es,ax
 	mov	cx,#256
-	sub	si,si
-	sub	di,di
+	sub	si,si			! ds:si = 0x07c0:0x0000
+	sub	di,di			! es:di = 0x9000:0x0000
 	rep
-	movw
-	jmpi	go,INITSEG
-go:	mov	ax,cs
+	movw				! 移动1个字，重复256次
+	jmpi	go,INITSEG	! 跳到移动后的 go 标号处（0x90000+go）
+go:	mov	ax,cs			! 重设段寄存器 ds,es,ss，重设到当前代码所在段即 0x9000
 	mov	ds,ax
 	mov	es,ax
 ! put stack at 0x9ff00.
 	mov	ss,ax
 	mov	sp,#0xFF00		! arbitrary value >>512
+! 栈随便放，不碍着地就行，Linus选了个 0x9ff00（注意栈往低处增长）
 
 ! load the setup-sectors directly after the bootblock.
 ! Note that 'es' is already set up.
+
+! 注意此时 es 段寄存器是 0x9000
 
 load_setup:
 	mov	dx,#0x0000		! drive 0, head 0
@@ -70,9 +78,13 @@ load_setup:
 	mov	bx,#0x0200		! address = 512, in INITSEG
 	mov	ax,#0x0200+SETUPLEN	! service 2, nr of sectors
 	int	0x13			! read it
+	! 读取 setup 的数据，放到 es:bx 即 0x9000:0x0200 处
+	! 总共读取 4 个扇区 (SETUPLEN)
+	! int 0x13 是 BIOS 提供的服务，可以读磁盘
 	jnc	ok_load_setup		! ok - continue
 	mov	dx,#0x0000
 	mov	ax,#0x0000		! reset the diskette
+	! 如果不成功就重设一些参数后重新尝试
 	int	0x13
 	j	load_setup
 
@@ -82,12 +94,13 @@ ok_load_setup:
 
 	mov	dl,#0x00
 	mov	ax,#0x0800		! AH=8 is get drive parameters
-	int	0x13
+	int	0x13 			! 该中断服务程序会将磁盘参数表置于 es:di 处
 	mov	ch,#0x00
 	seg cs
-	mov	sectors,cx
+	mov	sectors,cx 		! 保存每磁道最大扇区数到 sectors (见本文件末)
+	! 因为 sectors 就在本文件末，所以是 cs:sectors
 	mov	ax,#INITSEG
-	mov	es,ax
+	mov	es,ax 			! int 0x13 似乎会破坏 es 的值，重新改正
 
 ! Print some inane message
 
@@ -107,7 +120,7 @@ ok_load_setup:
 	mov	ax,#SYSSEG
 	mov	es,ax		! segment of 0x010000
 	call	read_it
-	call	kill_motor
+	call	kill_motor 	! 关闭软驱的电机，不过我不清楚为什么要有这一步
 
 ! After that we check which root-device to use. If the device is
 ! defined (!= 0), nothing is done and the given device is used.
@@ -117,8 +130,8 @@ ok_load_setup:
 	seg cs
 	mov	ax,root_dev
 	cmp	ax,#0
-	jne	root_defined
-	seg cs
+	jne	root_defined 	! root_dev 定义过了，不作处理
+	seg cs 				! 否则根据每磁道扇区数判断是啥类型的磁盘
 	mov	bx,sectors
 	mov	ax,#0x0208		! /dev/ps0 - 1.2Mb
 	cmp	bx,#15
@@ -126,7 +139,7 @@ ok_load_setup:
 	mov	ax,#0x021c		! /dev/PS0 - 1.44Mb
 	cmp	bx,#18
 	je	root_defined
-undef_root:
+undef_root: 			! 找不到就死循环
 	jmp undef_root
 root_defined:
 	seg cs
@@ -137,6 +150,8 @@ root_defined:
 ! the bootblock:
 
 	jmpi	0,SETUPSEG
+	! 跳到 setup 起始处
+	! 此时 setup 已经被载入到 0x10000～0x30000 处了
 
 ! This routine loads the system at address 0x10000, making sure
 ! no 64kB boundaries are crossed. We try to load it as fast as
@@ -151,8 +166,13 @@ track:	.word 0			! current track
 read_it:
 	mov ax,es
 	test ax,#0x0fff
-die:	jne die			! es must be at 64kB boundary
+die:
+	jne die			! es must be at 64kB boundary
+	! 0x1000 & 0x0fff = 0, ZF=1
+	! 所以这里不会进入死循环 (ZF=0 才会死循环)
+	! 以这种方式检查 es 是否与 64KiB 对齐
 	xor bx,bx		! bx is starting address within segment
+	! 下边就懒得读了，意义不大，就是利用 int 0x13 读数据而已
 rp_read:
 	mov ax,es
 	cmp ax,#ENDSEG		! have we loaded all yet?
