@@ -20,20 +20,34 @@ startup_32:
 	mov %ax,%es
 	mov %ax,%fs
 	mov %ax,%gs
+	# 注意现在已经处于保护模式之下了，0x10 不是一个单纯的立即数，应将其视为一个段选择子
+	# 即 0000000000010 0   00
+	#        Index    GDT RPL
+	# 对应着 GDT 中的第二个段描述符，即那个可读可写的数据段，段基址为 0x0000
 	lss _stack_start,%esp
-	call setup_idt
+	# 将 ss:esp 设为 _stack_start
+	# TODO: 在 kernel/sched.c#L72 找到了 stack_start 的定义，但是没看懂为什么要设置在那
+	#       随便找一块内存放着不就行了？
+	call setup_idt	# 将 IDT 表设置为，所有中断都由 ignore_int 来处理
 	call setup_gdt
+
+	# 由于缓存的缘故，当段寄存器在"load"的时候，新 GDT 才会发生作用
+	# 因此这里将几个寄存器都刷新一遍
+	# 见 https://stackoverflow.com/questions/30932302/i-am-confusing-some-assembly-code-about-enable-pe-within-boot-setup-s-file-in-linux-0-11
 	movl $0x10,%eax		# reload all the segment registers
 	mov %ax,%ds		# after changing gdt. CS was already
 	mov %ax,%es		# reloaded in 'setup_gdt'
 	mov %ax,%fs
 	mov %ax,%gs
 	lss _stack_start,%esp
-	xorl %eax,%eax
-1:	incl %eax		# check that A20 really IS enabled
+
+# 下边这部分代码跳过吧，感觉都是了解了也没用的细节
+	xorl %eax,%eax 		# 清空
+1:	incl %eax			# check that A20 really IS enabled
 	movl %eax,0x000000	# loop forever if it isn't
 	cmpl %eax,0x100000
 	je 1b
+
 /*
  * NOTE! 486 should set bit 16, to check for write-protect in supervisor
  * mode. Then it would be unnecessary with the "verify_area()"-calls.
@@ -46,7 +60,9 @@ startup_32:
 	orl $2,%eax		# set MP
 	movl %eax,%cr0
 	call check_x87
-	jmp after_page_tables
+	jmp after_page_tables 	# 注意这里跳走了
+	# 跳走了之后，就可以（用页表）覆盖这段内存空间了
+	# after_page_tables 处在页表后边，不会受到影响
 
 /*
  * We depend on ET to be correct. This checks for 287/387.
@@ -75,18 +91,41 @@ check_x87:
  *  sure everything is ok. This routine will be over-
  *  written by the page tables.
  */
+
+/*  IDT 描述符结构
+
+ *  |31                           16|15                            0|
+ *  +---------------------------------------------------------------+
+ *  |            Selector           |          Offset 15~0          |
+ *  +---------------------------------------------------------------+
+ *  
+ *  |31                           16| 15|14 13| 12|11   8|7        0|
+ *  +-------------------------------|-------------------------------+
+ *  |          Offset 31~16         | P | DPL | S | TYPE | RESERVED |
+ *  +---------------------------------------------------------------+
+ */
+
 setup_idt:
 	lea ignore_int,%edx
-	movl $0x00080000,%eax
-	movw %dx,%ax		/* selector = 0x0008 = cs */
-	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
+	# 汇编知识不牢固，这里标注一下 mov 跟 lea 的区别：
+	# lea 只计算地址，mov 则是计算地址后解了引用
 
-	lea _idt,%edi
-	mov $256,%ecx
+	movl $0x00080000,%eax
+	# 段选择子为 0x0008
+	movw %dx,%ax		/* selector = 0x0008 = cs */
+	# ignore_int 的有效地址作为偏移量
+	# eax 存放中断描述符的前 4Bytes
+
+	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
+	# 1 00 0 1110 00000000
+	# edx 存放中断描述符的后 4Bytes
+
+	lea _idt,%edi		# 目标地址
+	mov $256,%ecx		# 计数器
 rp_sidt:
 	movl %eax,(%edi)
 	movl %edx,4(%edi)
-	addl $8,%edi
+	addl $8,%edi		# 一个中断描述符占用 8 Bytes
 	dec %ecx
 	jne rp_sidt
 	lidt idt_descr
@@ -111,7 +150,7 @@ setup_gdt:
  * using 4 of them to span 16 Mb of physical memory. People with
  * more than 16MB will have to expand this.
  */
-.org 0x1000
+.org 0x1000 		# 此处的偏移量为 0x1000 的意思，因此会在这上边腾出空缺
 pg0:
 
 .org 0x2000
@@ -122,6 +161,8 @@ pg2:
 
 .org 0x4000
 pg3:
+
+# 0x1000~0x4fff 这块内存共放置了四个页表
 
 .org 0x5000
 /*
@@ -137,8 +178,17 @@ after_page_tables:
 	pushl $0
 	pushl $0
 	pushl $L6		# return address for main, if it decides to.
-	pushl $_main
+	pushl $_main 		# init/main.c 里边的 main 函数地址
 	jmp setup_paging
+	# 注意这里是 jmp，
+	# 配合上边手动 push 的地址
+	# 在 setup_paging 结束后，可以用 ret 替代 call（跳转到 main）
+	# 如果看不懂…先去熟悉一下函数调用过程中栈内数据的变化，以及 call, ret 的作用
+
+	# - 为什么要这么做？
+	# - 因为要手动指定返回地址（也即是下边的 L6）
+	#   注意这里已经在页表后边了，这段代码（暂时？）不会被覆盖掉
+	#   所以可以作为 main 的返回地址（虽然预期中永远都不能回到这里来）
 L6:
 	jmp L6			# main should never return here, but
 				# just in case, we know what happens.
@@ -148,7 +198,12 @@ int_msg:
 	.asciz "Unknown interrupt\n\r"
 .align 2
 ignore_int:
+	# CPU 会为我们保存 cs, eip
+	# 其他都需要自己保存
 	pushl %eax
+	# - 为什么不保存 ebx?
+	# - 我也很奇怪…
+	#   可能是因为 printk 写死了只用到 eax, ecx, edx 吧（见 kernel/printk.c）
 	pushl %ecx
 	pushl %edx
 	push %ds
@@ -159,7 +214,7 @@ ignore_int:
 	mov %ax,%es
 	mov %ax,%fs
 	pushl $int_msg
-	call _printk
+	call _printk 		# 函数定义在 kernel/printk.c 里
 	popl %eax
 	pop %fs
 	pop %es
@@ -167,7 +222,7 @@ ignore_int:
 	popl %edx
 	popl %ecx
 	popl %eax
-	iret
+	iret 			# 注意是 iret，现在正在处理中断，不是普通的函数调用
 
 
 /*
@@ -195,6 +250,8 @@ ignore_int:
  * won't guarantee that's all :-( )
  */
 .align 2
+# 设置页表，这部分暂时先跳过了
+# 读到内存管理再来回顾吧
 setup_paging:
 	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */
 	xorl %eax,%eax
@@ -216,11 +273,15 @@ setup_paging:
 	orl $0x80000000,%eax
 	movl %eax,%cr0		/* set paging (PG) bit */
 	ret			/* this also flushes prefetch-queue */
+	# 这里 ret 跳到了 init/main.c 里边 的 main
+	# 而非返回本文件跳过来的地方
 
 .align 2
 .word 0
 idt_descr:
 	.word 256*8-1		# idt contains 256 entries
+	# 注意 lidt 跟 lgdt 的参数都是一个地址，地址指向一个 6bytes 的结构
+	# 然后里边的前两字节是 limits，是实际数量-1
 	.long _idt
 .align 2
 .word 0
@@ -230,6 +291,8 @@ gdt_descr:
 
 	.align 3
 _idt:	.fill 256,8,0		# idt is uninitialized
+# 现在的 IDT 表跟 GDT 表就混杂在代码中间
+# 当然，本文件这段从 0x00000 开始的代码早晚肯定会被覆盖掉的
 
 _gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x00c09a0000000fff	/* 16Mb */

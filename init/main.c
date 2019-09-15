@@ -102,7 +102,10 @@ static long main_memory_start = 0;
 struct drive_info { char dummy[32]; } drive_info;
 
 void main(void)		/* This really IS void, no error here. */
-{			/* The startup routine assumes (well, ...) this */
+{					/* The startup routine assumes (well, ...) this */
+// main 函数应该永远也不会返回
+// 万一返回了，就回到 head.s 里边的 L6 标号处无限死循环了
+
 /*
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
