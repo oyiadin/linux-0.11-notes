@@ -205,4 +205,5 @@ void trap_init(void)
 	outb_p(inb_p(0x21)&0xfb,0x21);
 	outb(inb_p(0xA1)&0xdf,0xA1);
 	set_trap_gate(39,&parallel_interrupt);
+	// system_call 即 0x80 号中断，不在这里设置，在 kernel/sched.c 里
 }

@@ -409,4 +409,5 @@ void sched_init(void)
 	set_intr_gate(0x20,&timer_interrupt);
 	outb(inb_p(0x21)&~0x01,0x21);
 	set_system_gate(0x80,&system_call);
+	// TODO: 为什么 system_call 中断不在 trap_init 里设置而在这里设置？
 }

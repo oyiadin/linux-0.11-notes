@@ -91,7 +91,7 @@ _system_call:
 	mov %dx,%es
 	movl $0x17,%edx		# fs points to local data space
 	mov %dx,%fs
-	call _sys_call_table(,%eax,4)
+	call _sys_call_table(,%eax,4)	# 在 include/linux/sys.h 里边
 	pushl %eax
 	movl _current,%eax
 	cmpl $0,state(%eax)		# state

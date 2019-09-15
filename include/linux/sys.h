@@ -71,16 +71,83 @@ extern int sys_ssetmask();
 extern int sys_setreuid();
 extern int sys_setregid();
 
-fn_ptr sys_call_table[] = { sys_setup, sys_exit, sys_fork, sys_read,
-sys_write, sys_open, sys_close, sys_waitpid, sys_creat, sys_link,
-sys_unlink, sys_execve, sys_chdir, sys_time, sys_mknod, sys_chmod,
-sys_chown, sys_break, sys_stat, sys_lseek, sys_getpid, sys_mount,
-sys_umount, sys_setuid, sys_getuid, sys_stime, sys_ptrace, sys_alarm,
-sys_fstat, sys_pause, sys_utime, sys_stty, sys_gtty, sys_access,
-sys_nice, sys_ftime, sys_sync, sys_kill, sys_rename, sys_mkdir,
-sys_rmdir, sys_dup, sys_pipe, sys_times, sys_prof, sys_brk, sys_setgid,
-sys_getgid, sys_signal, sys_geteuid, sys_getegid, sys_acct, sys_phys,
-sys_lock, sys_ioctl, sys_fcntl, sys_mpx, sys_setpgid, sys_ulimit,
-sys_uname, sys_umask, sys_chroot, sys_ustat, sys_dup2, sys_getppid,
-sys_getpgrp, sys_setsid, sys_sigaction, sys_sgetmask, sys_ssetmask,
-sys_setreuid,sys_setregid };
+// 系统调用过程：
+//   1. 通过 IDTR、GDTR、LDTR 等，找到对应的中断处理函数
+//      （对于系统调用，就是一路找到了 kernel/system_call.s 里边的 _system_call）
+//   2. _system_call 会根据系统调用号来到这里进行查找，找到对应的函数地址然后跳转过去
+
+// 下面各个函数对应的数字就是其系统调用号
+fn_ptr sys_call_table[] = {
+	sys_setup,		// 0 (仅用于系统初始化过程之中)
+	sys_exit,		// 1
+	sys_fork,		// 2
+	sys_read,		// 3
+	sys_write,		// 4
+	sys_open,		// 5
+	sys_close,		// 6
+	sys_waitpid,	// 7
+	sys_creat,		// 8
+	sys_link,		// 9
+	sys_unlink,		// 10
+	sys_execve,		// 11
+	sys_chdir,		// 12
+	sys_time,		// 13
+	sys_mknod,		// 14
+	sys_chmod,		// 15
+	sys_chown,		// 16
+	sys_break,		// 17
+	sys_stat,		// 18
+	sys_lseek,		// 19
+	sys_getpid,		// 20
+	sys_mount,		// 21
+	sys_umount,		// 22
+	sys_setuid,		// 23
+	sys_getuid,		// 24
+	sys_stime,		// 25
+	sys_ptrace,		// 26
+	sys_alarm,		// 27
+	sys_fstat,		// 28
+	sys_pause,		// 29
+	sys_utime,		// 30
+	sys_stty,		// 31
+	sys_gtty,		// 32
+	sys_access,		// 33
+	sys_nice,		// 34
+	sys_ftime,		// 35
+	sys_sync,		// 36
+	sys_kill,		// 37
+	sys_rename,		// 38
+	sys_mkdir,		// 39
+	sys_rmdir,		// 40
+	sys_dup,		// 41
+	sys_pipe,		// 42
+	sys_times,		// 43
+	sys_prof,		// 44
+	sys_brk,		// 45
+	sys_setgid,		// 46
+	sys_getgid,		// 47
+	sys_signal,		// 48
+	sys_geteuid,	// 49
+	sys_getegid,	// 50
+	sys_acct,		// 51
+	sys_phys,		// 52
+	sys_lock,		// 53
+	sys_ioctl,		// 54
+	sys_fcntl,		// 55
+	sys_mpx,		// 56
+	sys_setpgid,	// 57
+	sys_ulimit,		// 58
+	sys_uname,		// 59
+	sys_umask,		// 60
+	sys_chroot,		// 61
+	sys_ustat,		// 62
+	sys_dup2,		// 63
+	sys_getppid,	// 64
+	sys_getpgrp,	// 65
+	sys_setsid,		// 66
+	sys_sigaction,	// 67
+	sys_sgetmask,	// 68
+	sys_ssetmask,	// 69
+	sys_setreuid,	// 70
+	sys_setregid,	// 71
+};

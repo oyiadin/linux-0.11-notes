@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <time.h>
 
+// 现在已经从 boot/head.s 跳转到了本文件的 main 函数里边
+// 参数为三个 0，并且 main 函数永远都不应该返回（结束）
+
 /*
  * we need this inline - forking from kernel space will result
  * in NO COPY ON WRITE (!!!), until an execve is executed. This
@@ -20,10 +23,14 @@
  * won't be any messing with the stack from main(), but we define
  * some others too.
  */
-static inline _syscall0(int,fork)
+static inline _syscall0(int,fork)  // 宏定义见 include/unistd.h
 static inline _syscall0(int,pause)
 static inline _syscall1(int,setup,void *,BIOS)
 static inline _syscall0(int,sync)
+// 定义了几个内联函数，其实就是对 int $0x80 做了一个很简单的包装
+
+// 其实我没读懂 Linus 的意思 23333
+// TODO: 为什么这里需要 inline 呢
 
 #include <linux/tty.h>
 #include <linux/sched.h>
@@ -40,7 +47,11 @@ static inline _syscall0(int,sync)
 #include <linux/fs.h>
 
 static char printbuf[1024];
+// 我不知道输出到这里有啥意义
+// 仅仅只是在内存中存在，整个 Linux 0.11 的代码里边，也没有任何到这里的引用
+// （当然，加个前提，除了本文件对其的几次引用）
 
+// 下面这些函数分布在各种文件里边
 extern int vsprintf();
 extern void init(void);
 extern void blk_dev_init(void);
@@ -58,6 +69,7 @@ extern long startup_time;
 #define EXT_MEM_K (*(unsigned short *)0x90002)
 #define DRIVE_INFO (*(struct drive_info *)0x90080)
 #define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)
+// 这些数据是 boot/setup.s 给放那的，而且也还没被覆盖到，可以很方便地直接拿来用
 
 /*
  * Yeah, yeah, it's ugly, but I cannot find how to do this correctly
@@ -110,8 +122,8 @@ void main(void)		/* This really IS void, no error here. */
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
- 	ROOT_DEV = ORIG_ROOT_DEV;
- 	drive_info = DRIVE_INFO;
+	ROOT_DEV = ORIG_ROOT_DEV;  // ROOT_DEV 在 fs/super.c 里，是一个全局变量
+	drive_info = DRIVE_INFO;
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
 	memory_end &= 0xfffff000;
 	if (memory_end > 16*1024*1024)
@@ -126,6 +138,7 @@ void main(void)		/* This really IS void, no error here. */
 #ifdef RAMDISK
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
 #endif
+	// 一系列的初始化工作
 	mem_init(main_memory_start,memory_end);
 	trap_init();
 	blk_dev_init();
@@ -136,9 +149,10 @@ void main(void)		/* This really IS void, no error here. */
 	buffer_init(buffer_memory_end);
 	hd_init();
 	floppy_init();
-	sti();
+	sti();				// 一切准备就绪，开中断
 	move_to_user_mode();
 	if (!fork()) {		/* we count on this going ok */
+	// 在子进程里边进行 init (task 1)
 		init();
 	}
 /*
@@ -149,6 +163,7 @@ void main(void)		/* This really IS void, no error here. */
  * task can run, and if not we return here.
  */
 	for(;;) pause();
+	// 父进程来到这里 (task 0)
 }
 
 static int printf(const char *fmt, ...)
@@ -162,6 +177,9 @@ static int printf(const char *fmt, ...)
 	return i;
 }
 
+// 下边是两套参数/环境环境变量
+// 分别用于执行 /etc/rc 跟启动 shell 的过程中
+
 static char * argv_rc[] = { "/bin/sh", NULL };
 static char * envp_rc[] = { "HOME=/", NULL };
 
@@ -173,40 +191,64 @@ void init(void)
 	int pid,i;
 
 	setup((void *) &drive_info);
-	(void) open("/dev/tty0",O_RDWR,0);
-	(void) dup(0);
-	(void) dup(0);
+	// setup 这个系统调用仅用于初始化期间
+	// 函数定义在 kernel/blk_drv/hd.c
+
+	(void) open("/dev/tty0",O_RDWR,0);	// stdin
+	(void) dup(0);				// stdout
+	(void) dup(0);				// stderr
+	// TODO: 不是很明白这里为什么要加上 (void) 对函数返回值进行强制类型转换
 	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
 		NR_BUFFERS*BLOCK_SIZE);
 	printf("Free mem: %d bytes\n\r",memory_end-main_memory_start);
+
 	if (!(pid=fork())) {
 		close(0);
+		// 关闭 fd=0 然后立即打开 /etc/rc，stdin 就被重定向到这个文件了
 		if (open("/etc/rc",O_RDONLY,0))
+		// 有个小 trick，因为此时，返回的 fd 应当为 0，就可以以此判断出错与否了…
 			_exit(1);
+
+		// 注意，stdin 指向 /etc/rc，所以下面这行会从 /etc/rc 读取内容并执行
 		execve("/bin/sh",argv_rc,envp_rc);
 		_exit(2);
 	}
+	// 子进程跑去执行 /etc/rc 了，父进程来到这里
+	// 不做啥事，就是等子进程
+	// 一旦子进程结束（/etc/rc 的内容执行完了），就进入到下边的 while(1)
+	// 如果 fork 失败了，也直接进入下边的 while(1)
 	if (pid>0)
 		while (pid != wait(&i))
 			/* nothing */;
+
 	while (1) {
 		if ((pid=fork())<0) {
 			printf("Fork failed in init\r\n");
 			continue;
 		}
-		if (!pid) {
+		if (!pid) {  // 子进程
 			close(0);close(1);close(2);
-			setsid();
+			setsid();	// 创建一个新的会话
+			// TODO: 不清楚“会话”在 Linux 里的作用
 			(void) open("/dev/tty0",O_RDWR,0);
 			(void) dup(0);
 			(void) dup(0);
 			_exit(execve("/bin/sh",argv,envp));
+			// 注意这里用的环境变量跟启动参数跟上边 /etc/rc 那会不一样
 		}
+
+		// 注意只有父进程会执行到这里
 		while (1)
 			if (pid == wait(&i))
 				break;
+
 		printf("\n\rchild %d died with code %04x\n\r",pid,i);
-		sync();
+		sync();		// 确保将缓存数据存入硬盘中
+		// 然后父进程就又开始循环了…
+		// 这个循环永远都不会退出= =
+		// TODO: Linux 0.11 中，正常的关机流程是啥啊？
 	}
+
+	// 我觉得这行 exit 没用啊 =_=
 	_exit(0);	/* NOTE! _exit, not exit() */
 }

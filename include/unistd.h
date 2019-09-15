@@ -142,6 +142,10 @@ if (__res >= 0) \
 errno = -__res; \
 return -1; \
 }
+// "0" 是跟 __res 使用同一个寄存器的意思
+// 这段宏可以定义一个新函数，将对应的系统调用号放置在 eax 然后 int $0x80
+// 系统调用结束后（eax 放置返回值，惯例），将返回值放在 __res 里边
+// 并根据 __res 的值做一个简单的处理
 
 #define _syscall1(type,name,atype,a) \
 type name(atype a) \
@@ -155,6 +159,7 @@ if (__res >= 0) \
 errno = -__res; \
 return -1; \
 }
+// 与 _syscall0 的区别仅在于，将参数放在了 ebx 里
 
 #define _syscall2(type,name,atype,a,btype,b) \
 type name(atype a,btype b) \

@@ -10,6 +10,10 @@
  * Fork is rather simple, once you get the hang of it, but the memory
  * management can be a bitch. See 'mm/mm.c': 'copy_page_tables()'
  */
+
+// 这个文件只有一些工具函数，供真正的 fork 系统调用使用
+// 它存在于 kernel/system_call.s 里边
+
 #include <errno.h>
 
 #include <linux/sched.h>
@@ -94,7 +98,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.ss0 = 0x10;
 	p->tss.eip = eip;
 	p->tss.eflags = eflags;
-	p->tss.eax = 0;
+	p->tss.eax = 0;				// 子进程返回 0
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
