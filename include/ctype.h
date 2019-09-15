@@ -9,6 +9,7 @@
 #define _S	0x20	/* white space (space/lf/tab) */
 #define _X	0x40	/* hex digit */
 #define _SP	0x80	/* hard space (0x20) */
+// 8 位全用上了
 
 extern unsigned char _ctype[];
 extern char _ctmp;
