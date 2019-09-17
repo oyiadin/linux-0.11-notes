@@ -52,7 +52,7 @@ extern int system_call(void);
 
 union task_union {
 	struct task_struct task;
-	char stack[PAGE_SIZE];
+	char stack[PAGE_SIZE];  // TODO: 这个 union 里边的 stack 干嘛用的？
 };
 
 static union task_union init_task = {INIT_TASK,};
@@ -389,6 +389,8 @@ void sched_init(void)
 
 	if (sizeof(struct sigaction) != 16)
 		panic("Struct sigaction MUST be 16 bytes");
+	// gdt 应该是 boot/head.s 里边那个
+	// C 语言的声明在 include/linux/head.h: extern desc_table idt,gdt
 	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss));
 	set_ldt_desc(gdt+FIRST_LDT_ENTRY,&(init_task.task.ldt));
 	p = gdt+2+FIRST_TSS_ENTRY;
@@ -401,6 +403,7 @@ void sched_init(void)
 	}
 /* Clear NT, so that we won't have troubles with that later on */
 	__asm__("pushfl ; andl $0xffffbfff,(%esp) ; popfl");
+	// NT 标志位在 14 偏移处
 	ltr(0);
 	lldt(0);
 	outb_p(0x36,0x43);		/* binary, mode 3, LSB/MSB, ch 0 */

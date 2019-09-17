@@ -15,20 +15,22 @@
 
 extern int sys_close(int fd);
 
+// current 在 include/linux/sched.h 里
+
 static int dupfd(unsigned int fd, unsigned int arg)
 {
 	if (fd >= NR_OPEN || !current->filp[fd])
 		return -EBADF;
 	if (arg >= NR_OPEN)
 		return -EINVAL;
-	while (arg < NR_OPEN)
+	while (arg < NR_OPEN) 	// 递增寻找最小的可用 fd 值
 		if (current->filp[arg])
 			arg++;
 		else
 			break;
-	if (arg >= NR_OPEN)
+	if (arg >= NR_OPEN) 	// 打开的文件过多，fd 列表不够用了
 		return -EMFILE;
-	current->close_on_exec &= ~(1<<arg);
+	current->close_on_exec &= ~(1<<arg); 	// TODO: 干嘛用的
 	(current->filp[arg] = current->filp[fd])->f_count++;
 	return arg;
 }
@@ -37,6 +39,7 @@ int sys_dup2(unsigned int oldfd, unsigned int newfd)
 {
 	sys_close(newfd);
 	return dupfd(oldfd,newfd);
+	// newfd 只是开始寻找的“下标”，最终返回的是最小的可用 fd 值
 }
 
 int sys_dup(unsigned int fildes)

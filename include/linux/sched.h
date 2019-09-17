@@ -79,7 +79,7 @@ struct task_struct {
 /* these are hardcoded - don't touch */
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	long counter;
-	long priority;
+	long priority;	// 值越小，优先级越高
 	long signal;
 	struct sigaction sigaction[32];
 	long blocked;	/* bitmap of masked signals */
@@ -110,26 +110,77 @@ struct task_struct {
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x9ffff (=640kB)
  */
-#define INIT_TASK \
-/* state etc */	{ 0,15,15, \
-/* signals */	0,{{},},0, \
-/* ec,brk... */	0,0,0,0,0,0, \
-/* pid etc.. */	0,-1,0,0,0, \
-/* uid etc */	0,0,0,0,0,0, \
-/* alarm */	0,0,0,0,0,0, \
-/* math */	0, \
-/* fs info */	-1,0022,NULL,NULL,NULL,0, \
-/* filp */	{NULL,}, \
-	{ \
+#define INIT_TASK { \
+	.state=0, \
+	.counter=15, \
+	.priority=15, \
+	.signal=0, \
+	.sigaction={{},}, \
+	.blocked=0, \
+	.exit_code=0, \
+	.start_code=0, \
+	.end_code=0, \
+	.end_data=0, \
+	.brk=0, \
+	.start_stack=0, \
+	.pid=0, \
+	.father=-1, \
+	.pgrp=0, \
+	.session=0, \
+	.leader=0, \
+	.uid=0, \
+	.euid=0, \
+	.suid=0, \
+	.gid=0, \
+	.egid=0, \
+	.sgid=0, \
+	.alarm=0, \
+	.utime=0, \
+	.stime=0, \
+	.cutime=0, \
+	.cstime=0, \
+	.start_time=0, \
+	.used_math=0, \
+	.tty=-1, \
+	.umask=0022, \
+	.pwd=NULL, \
+	.root=NULL, \
+	.executable=NULL, \
+	.close_on_exec=0, \
+	.filp={NULL,}, \
+	.ldt={ \
 		{0,0}, \
-/* ldt */	{0x9f,0xc0fa00}, \
+		{0x9f,0xc0fa00}, \
 		{0x9f,0xc0f200}, \
 	}, \
-/*tss*/	{0,PAGE_SIZE+(long)&init_task,0x10,0,0,0,0,(long)&pg_dir,\
-	 0,0,0,0,0,0,0,0, \
-	 0,0,0x17,0x17,0x17,0x17,0x17,0x17, \
-	 _LDT(0),0x80000000, \
-		{} \
+	.tss={ \
+		.back_link=0, \
+		.esp0=PAGE_SIZE+(long)&init_task, \
+		.ss0=0x10, \
+		.esp1=0, \
+		.ss1=0, \
+		.esp2=0, \
+		.ss2=0, \
+		.cr3=(long)&pg_dir, \
+		.eip=0, \
+		.eflags=0, \
+		.eax=0, \
+		.ecx=0, \
+		.edx=0, \
+		.ebx=0, \
+		.esp=0, \
+		.ebp=0, \
+		.esi=0, \
+		.edi=0, \
+		.es=0x17, \
+		.cs=0x17, \
+		.ss=0x17, \
+		.ds=0x17, \
+		.fs=0x17, \
+		.gs=0x17, \
+		.ldt=_LDT(0), \
+		.trace_bitmap=0x80000000, \
+		.i387={}, \
 	}, \
 }
 

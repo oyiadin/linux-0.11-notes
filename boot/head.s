@@ -299,3 +299,5 @@ _gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x00c0920000000fff	/* 16Mb */
 	.quad 0x0000000000000000	/* TEMPORARY - don't use */
 	.fill 252,8,0			/* space for LDT's and TSS's etc */
+# 这个表似乎就一直用着了？
+# 反正 head.s 其实就是内存的头部

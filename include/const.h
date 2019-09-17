@@ -2,6 +2,7 @@
 #define _CONST_H
 
 #define BUFFER_END 0x200000
+// 这个常量似乎没用？
 
 #define I_TYPE          0170000
 #define I_DIRECTORY	0040000
@@ -11,5 +12,6 @@
 #define I_NAMED_PIPE	0010000
 #define I_SET_UID_BIT   0004000
 #define I_SET_GID_BIT   0002000
+// 用于 fs 里
 
 #endif

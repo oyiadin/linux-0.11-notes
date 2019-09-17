@@ -5,7 +5,7 @@
  */
 
 /*
- * This function is used through-out the kernel (includeinh mm and fs)
+ * This function is used through-out the kernel (includeing mm and fs)
  * to indicate a major problem.
  */
 #include <linux/kernel.h>
@@ -21,4 +21,8 @@ volatile void panic(const char * s)
 	else
 		sys_sync();
 	for(;;);
+    // panic 仅做了最需要的两个操作：
+    // 1. 报道错误信息
+    // 2. sync 保存缓存
+    // 然后就进入了死循环之中
 }

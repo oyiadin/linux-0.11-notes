@@ -13,6 +13,8 @@
 #include <sys/times.h>
 #include <sys/utsname.h>
 
+// 一堆还没实现的功能
+// TODO: 兴许我有时间能给实现了 XD
 int sys_ftime()
 {
 	return -ENOSYS;
