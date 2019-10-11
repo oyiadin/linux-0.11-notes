@@ -18,6 +18,7 @@ __asm__ ("movl %%esp,%%eax\n\t" \
 #define nop() __asm__ ("nop"::)
 
 #define iret() __asm__ ("iret"::)
+// 方便以后的跨平台
 
 #define _set_gate(gate_addr,type,dpl,addr) \
 __asm__ ("movw %%dx,%%ax\n\t" \

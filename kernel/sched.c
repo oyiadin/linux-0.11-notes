@@ -22,6 +22,7 @@
 
 #define _S(nr) (1<<((nr)-1))
 #define _BLOCKABLE (~(_S(SIGKILL) | _S(SIGSTOP)))
+// 这俩信号不能屏蔽
 
 void show_task(int nr,struct task_struct * p)
 {
@@ -60,6 +61,7 @@ static union task_union init_task = {INIT_TASK,};
 long volatile jiffies=0;
 long startup_time=0;
 struct task_struct *current = &(init_task.task);
+// TODO: 这个 current 怎么根据当前进程进行更改？
 struct task_struct *last_task_used_math = NULL;
 
 struct task_struct * task[NR_TASKS] = {&(init_task.task), };
@@ -111,19 +113,22 @@ void schedule(void)
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 		if (*p) {
 			if ((*p)->alarm && (*p)->alarm < jiffies) {
-					(*p)->signal |= (1<<(SIGALRM-1));
-					(*p)->alarm = 0;
-				}
+                                // TODO: 这里为什么是小于
+                                (*p)->signal |= (1<<(SIGALRM-1));
+                                (*p)->alarm = 0;
+                        }
 			if (((*p)->signal & ~(_BLOCKABLE & (*p)->blocked)) &&
-			(*p)->state==TASK_INTERRUPTIBLE)
+			                (*p)->state==TASK_INTERRUPTIBLE)
+                                        // 如果有未被屏蔽的 signal 发生且处于 TASK_INTERRUPTIBLE
 				(*p)->state=TASK_RUNNING;
+                                // 居然直接就给了 TASK_RUNNING
 		}
 
 /* this is the scheduler proper: */
 
 	while (1) {
-		c = -1;
-		next = 0;
+		c = -1;  // TASK_RUNNING 进程中最大的 counter
+		next = 0;   // 对应的下标
 		i = NR_TASKS;
 		p = &task[NR_TASKS];
 		while (--i) {
@@ -133,8 +138,11 @@ void schedule(void)
 				c = (*p)->counter, next = i;
 		}
 		if (c) break;
+                
+                // 当 counter 都小于 0 或没有 TASK_RUNNING 时
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 			if (*p)
+                                // 根据情况重设各个进程的 count 值
 				(*p)->counter = ((*p)->counter >> 1) +
 						(*p)->priority;
 	}

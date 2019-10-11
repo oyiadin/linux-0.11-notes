@@ -120,7 +120,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 				case ' ': flags |= SPACE; goto repeat;
 				case '#': flags |= SPECIAL; goto repeat;
 				case '0': flags |= ZEROPAD; goto repeat;
-				}
+			}
 		
 		/* get field width */
 		field_width = -1;
@@ -128,7 +128,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 			field_width = skip_atoi(&fmt);
 		else if (*fmt == '*') {
 			/* it's the next argument */
-			field_width = va_arg(args, int);
+			field_width = va_arg(args, int);  // 复习，星号表示从下一个参数读取宽度
 			if (field_width < 0) {
 				field_width = -field_width;
 				flags |= LEFT;
@@ -162,6 +162,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 				while (--field_width > 0)
 					*str++ = ' ';
 			*str++ = (unsigned char) va_arg(args, int);
+			// 这里可以注意到一个细节，即便参数是 char，传也是按 int 传的
 			while (--field_width > 0)
 				*str++ = ' ';
 			break;
@@ -215,7 +216,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 
 		case 'n':
 			ip = va_arg(args, int *);
-			*ip = (str - buf);
+			*ip = (str - buf);  // 嘿嘿，万恶之源
 			break;
 
 		default:

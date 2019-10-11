@@ -42,6 +42,7 @@ __asm__ ("movl %0,%%fs:%1"::"r" (val),"m" (*addr));
  * It seems to work, but I don't know if I'm doing something subtly wrong.
  * --- TYT, 11/24/91
  * [ nothing wrong here, Linus ]
+ * [ nothing wrong here, Xiaoyuan ]
  */
 
 extern inline unsigned long get_fs() 

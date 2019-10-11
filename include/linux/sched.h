@@ -6,6 +6,7 @@
 
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
+// trap: task[0~63] 共 64 个
 
 #include <linux/head.h>
 #include <linux/fs.h>
@@ -21,6 +22,7 @@
 #define TASK_UNINTERRUPTIBLE	2
 #define TASK_ZOMBIE		3
 #define TASK_STOPPED		4
+// 这五个状态原来从一开始就有了
 
 #ifndef NULL
 #define NULL ((void *) 0)
@@ -83,6 +85,7 @@ struct task_struct {
 	long signal;
 	struct sigaction sigaction[32];
 	long blocked;	/* bitmap of masked signals */
+	// 现在的 sigmask
 /* various fields */
 	int exit_code;
 	unsigned long start_code,end_code,end_data,brk,start_stack;
@@ -94,7 +97,7 @@ struct task_struct {
 	unsigned short used_math;
 /* file system info */
 	int tty;		/* -1 if no tty, so it must be signed */
-	unsigned short umask;
+	unsigned short umask;  // 用作新建文件的默认权限
 	struct m_inode * pwd;
 	struct m_inode * root;
 	struct m_inode * executable;
@@ -219,13 +222,13 @@ __asm__("str %%ax\n\t" \
  * This also clears the TS-flag if the task we switched to has used
  * tha math co-processor latest.
  */
-#define switch_to(n) {\
+#define switch_to(n) /* n是对应进程的下标，不是pid */ {\
 struct {long a,b;} __tmp; \
 __asm__("cmpl %%ecx,_current\n\t" \
-	"je 1f\n\t" \
+	"je 1f\n\t" /* 如果目标进程已经是当前进程，就啥都不做直接跳出 */ \
 	"movw %%dx,%1\n\t" \
-	"xchgl %%ecx,_current\n\t" \
-	"ljmp %0\n\t" \
+	"xchgl %%ecx,_current\n\t" /* 原来 current 变量是在这里改的 */ \
+	"ljmp %0\n\t" /* TODO: 这里应该就跳到新任务去了，不过没咋看懂，等我了解一番 TSS */ \
 	"cmpl %%ecx,_last_task_used_math\n\t" \
 	"jne 1f\n\t" \
 	"clts\n" \

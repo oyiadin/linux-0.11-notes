@@ -23,10 +23,10 @@
  * won't be any messing with the stack from main(), but we define
  * some others too.
  */
-static inline _syscall0(int,fork)  // 宏定义见 include/unistd.h
-static inline _syscall0(int,pause)
-static inline _syscall1(int,setup,void *,BIOS)
-static inline _syscall0(int,sync)
+static inline _syscall0(int,fork);  // 宏定义见 include/unistd.h
+static inline _syscall0(int,pause);
+static inline _syscall1(int,setup,void *,BIOS);
+static inline _syscall0(int,sync);
 // 定义了几个内联函数，其实就是对 int $0x80 做了一个很简单的包装
 
 // 其实我没读懂 Linus 的意思 23333

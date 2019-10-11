@@ -192,7 +192,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 	int sh_bang = 0;
 	unsigned long p=PAGE_SIZE*MAX_ARG_PAGES-4;
 
-	if ((0xffff & eip[1]) != 0x000f)
+	if ((0xffff & eip[1]) != 0x000f)  // TODO: 为啥这样就能判断 supervisor mode
 		panic("execve called from supervisor mode");
 	for (i=0 ; i<MAX_ARG_PAGES ; i++)	/* clear page-table */
 		page[i]=0;
@@ -224,6 +224,7 @@ restart_interp:
 	}
 	ex = *((struct exec *) bh->b_data);	/* read exec-header */
 	if ((bh->b_data[0] == '#') && (bh->b_data[1] == '!') && (!sh_bang)) {
+		// 原来 shebang 也是从一开始就有的呀…
 		/*
 		 * This section does the #! interpretation.
 		 * Sorta complicated, but hopefully it will work.  -TYT

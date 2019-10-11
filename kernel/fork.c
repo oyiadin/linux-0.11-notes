@@ -11,7 +11,7 @@
  * management can be a bitch. See 'mm/mm.c': 'copy_page_tables()'
  */
 
-// 这个文件只有一些工具函数，供真正的 fork 系统调用使用
+// 这个文件只有一些工具函数，供真正的 fork 系统调用使用（其实也就几行代码）
 // 它存在于 kernel/system_call.s 里边
 
 #include <errno.h>
@@ -69,6 +69,7 @@ int copy_mem(int nr,struct task_struct * p)
  * information (task[nr]) and sets up the necessary registers. It
  * also copies the data segment in it's entirety.
  */
+// fork 的主体代码
 int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		long ebx,long ecx,long edx,
 		long fs,long es,long ds,
@@ -81,12 +82,13 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;
-	task[nr] = p;
+	task[nr] = p;  // fork 的汇编里已经提前找到了空闲的 task[] 下标
 	*p = *current;	/* NOTE! this doesn't copy the supervisor stack */
+	// 曾经我以为结构体是不能像这样赋值的…
 	p->state = TASK_UNINTERRUPTIBLE;
 	p->pid = last_pid;
 	p->father = current->pid;
-	p->counter = p->priority;
+	p->counter = p->priority;  // 其实就是跟调度器更新的结果一样
 	p->signal = 0;
 	p->alarm = 0;
 	p->leader = 0;		/* process leadership doesn't inherit */
@@ -133,15 +135,16 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	p->state = TASK_RUNNING;	/* do this last, just in case */
-	return last_pid;
+	return last_pid;  // 用作父进程返回值，在 fork asm 里有处理
 }
 
+// 找到一个可用的 pid 并修改 last_pid，返回空闲的 task[] 下标
 int find_empty_process(void)
 {
 	int i;
 
 	repeat:
-		if ((++last_pid)<0) last_pid=1;
+		if ((++last_pid)<0) last_pid=1;  // long 都给溢出了可还行
 		for(i=0 ; i<NR_TASKS ; i++)
 			if (task[i] && task[i]->pid == last_pid) goto repeat;
 	for(i=1 ; i<NR_TASKS ; i++)

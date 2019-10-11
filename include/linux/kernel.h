@@ -1,6 +1,8 @@
 /*
  * 'kernel.h' contains some often-used function prototypes etc
  */
+// 现在也一样，kernel.h 放着最常用的一些声明
+
 void verify_area(void * addr,int count);
 volatile void panic(const char * str);
 int printf(const char * fmt, ...);

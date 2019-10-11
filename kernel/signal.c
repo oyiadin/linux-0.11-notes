@@ -22,6 +22,7 @@ int sys_ssetmask(int newmask)
 	int old=current->blocked;
 
 	current->blocked = newmask & ~(1<<(SIGKILL-1));
+	// 奇怪，这里能给屏蔽 SIGSTOP 置位，schedule 里边却无视之
 	return old;
 }
 
