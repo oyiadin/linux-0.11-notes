@@ -9,6 +9,7 @@ extern inline unsigned char get_fs_byte(const char * addr)
 extern inline unsigned short get_fs_word(const unsigned short *addr)
 {
 	unsigned short _v;
+	// TODO: 这里咋就不加 register 了？
 
 	__asm__ ("movw %%fs:%1,%0":"=r" (_v):"m" (*addr));
 	return _v;

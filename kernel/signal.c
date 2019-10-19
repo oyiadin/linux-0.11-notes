@@ -46,6 +46,8 @@ static inline void get_new(char * from,char * to)
 		*(to++) = get_fs_byte(from++);
 }
 
+// 设置相应的信号处理函数，并返回旧函数指针
+// 这安全隐患很大啊
 int sys_signal(int signum, long handler, long restorer)
 {
 	struct sigaction tmp;
@@ -99,10 +101,14 @@ void do_signal(long signr,long eax, long ebx, long ecx, long edx,
 			return;
 		else
 			do_exit(1<<(signr-1));
+			// 没有处理函数就直接退出
 	}
 	if (sa->sa_flags & SA_ONESHOT)
 		sa->sa_handler = NULL;
 	*(&eip) = sa_handler;
+	// 为什么要这么写？
+	// 问了一下学长，是为了保证对函数参数的修改能真正生效
+	// 不过对函数参数取地址好像是未定义行为，正常的话能不能写回去也不好说
 	longs = (sa->sa_flags & SA_NOMASK)?7:8;
 	*(&esp) -= longs;
 	verify_area(esp,longs*4);

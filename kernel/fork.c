@@ -82,7 +82,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;
-	task[nr] = p;  // fork 的汇编里已经提前找到了空闲的 task[] 下标
+	task[nr] = p;  // sys_fork 的汇编里已经提前找到了空闲的 task[] 下标
 	*p = *current;	/* NOTE! this doesn't copy the supervisor stack */
 	// 曾经我以为结构体是不能像这样赋值的…
 	p->state = TASK_UNINTERRUPTIBLE;

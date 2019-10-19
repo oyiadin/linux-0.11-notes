@@ -76,7 +76,11 @@ bad_sys_call:
 reschedule:
 	pushl $ret_from_sys_call
 	jmp _schedule
+	// 配合 ret
 .align 2
+
+# syscall 入口点
+# 除了 syscall 的逻辑之外，还会根据情况调用 schedule 跟 do_signal
 _system_call:
 	cmpl $nr_system_calls-1,%eax
 	ja bad_sys_call
@@ -86,15 +90,23 @@ _system_call:
 	pushl %edx
 	pushl %ecx		# push %ebx,%ecx,%edx as parameters
 	pushl %ebx		# to the system call
+	# 虽然 syscall 对于用户程序来说是寄存器传参
+	# 但是在真正进入 syscall handler 之前会统统放置在栈上
+	# 与现在一样，所以自己新增 syscall 需要加上 asmlinkage
 	movl $0x10,%edx		# set up ds,es to kernel space
+	# 强调一下，这里是段选择子，对应 GDT 第二项
 	mov %dx,%ds
 	mov %dx,%es
 	movl $0x17,%edx		# fs points to local data space
+	# LDT 第二项，RPL=0b11
 	mov %dx,%fs
 	call _sys_call_table(,%eax,4)	# 在 include/linux/sys.h 里边
 	pushl %eax
 	movl _current,%eax
 	cmpl $0,state(%eax)		# state
+	# TODO: 我很奇怪这里为什么要判断 state
+	# 一个进程通过中断进入到了这里，在这之前 state 肯定是 TASK_RUNNING(0)
+	# 既然如此，为什么要判断状态并根据情况 reschedule 呢？
 	jne reschedule
 	cmpl $0,counter(%eax)		# counter
 	je reschedule
