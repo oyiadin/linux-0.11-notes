@@ -11,6 +11,7 @@
  * - setup: max 4 sectors of 8086 machine code, sets up system parm
  * - system: 80386 code for actual system
  *
+ * 把几个文件拼一起。除此之外就做了一些简单的检查
  * It does some checking that all files are of the correct type, and
  * just writes the result to stdout, removing headers and padding to
  * the right amount. It also writes some system data to stderr.
@@ -29,11 +30,13 @@
 #include <unistd.h>	/* contains read/write */
 #include <fcntl.h>
 
+// 有意思，还有 MINIX 这个名字留下来的痕迹
 #define MINIX_HEADER 32
 #define GCC_HEADER 1024
 
 #define SYS_SIZE 0x2000
 
+// TODO: 为啥整了个奇怪的默认 (3, 6) 的设备号？
 #define DEFAULT_MAJOR_ROOT 3
 #define DEFAULT_MINOR_ROOT 6
 
@@ -64,7 +67,7 @@ int main(int argc, char ** argv)
 	if ((argc != 4) && (argc != 5))
 		usage();
 	if (argc == 5) {
-		if (strcmp(argv[4], "FLOPPY")) {
+		if (strcmp(argv[4], "FLOPPY")) {  // rootdev
 			if (stat(argv[4], &sb)) {
 				perror(argv[4]);
 				die("Couldn't stat root device.");
@@ -80,6 +83,7 @@ int main(int argc, char ** argv)
 		minor_root = DEFAULT_MINOR_ROOT;
 	}
 	fprintf(stderr, "Root device is (%d, %d)\n", major_root, minor_root);
+    // TODO: 为啥其他的主设备号取值就不给过呢？
 	if ((major_root != 2) && (major_root != 3) &&
 	    (major_root != 0)) {
 		fprintf(stderr, "Illegal root device (major = %d)\n",
@@ -87,10 +91,23 @@ int main(int argc, char ** argv)
 		die("Bad root device --- major #");
 	}
 	for (i=0;i<sizeof buf; i++) buf[i]=0;
+
+    // file bootsec
 	if ((id=open(argv[1],O_RDONLY,0))<0)
 		die("Unable to open 'boot'");
 	if (read(id,buf,MINIX_HEADER) != MINIX_HEADER)
 		die("Unable to read header of 'boot'");
+    // TODO: 为啥是这个魔数呢，搜代码好像没搜到
+    // assert:
+    // ((long*)boot)[0] == magic
+    //              [1] == header size (32)
+    //              [2] == ??
+    //              [3] == data segment (0)
+    //              [4] == bss (0)
+    //              [5] == 0
+    //              [6] == ??
+    //              [7] == symbol table (0)
+    // 后接刚好 512 bytes 的数据
 	if (((long *) buf)[0]!=0x04100301)
 		die("Non-Minix header of 'boot'");
 	if (((long *) buf)[1]!=MINIX_HEADER)
@@ -107,17 +124,21 @@ int main(int argc, char ** argv)
 	fprintf(stderr,"Boot sector %d bytes.\n",i);
 	if (i != 512)
 		die("Boot block must be exactly 512 bytes");
+    // TODO: 这些魔数都有啥特殊含义
 	if ((*(unsigned short *)(buf+510)) != 0xAA55)
 		die("Boot block hasn't got boot flag (0xAA55)");
 	buf[508] = (char) minor_root;
-	buf[509] = (char) major_root;	
+	buf[509] = (char) major_root;
+    // 填入设备号后输出到 stdout（最后重定向到 Image 中）
 	i=write(1,buf,512);
 	if (i!=512)
 		die("Write call failed");
 	close (id);
-	
+
+    // file setup
 	if ((id=open(argv[2],O_RDONLY,0))<0)
 		die("Unable to open 'setup'");
+    // 文件头的结构要求跟 bootsec 一样
 	if (read(id,buf,MINIX_HEADER) != MINIX_HEADER)
 		die("Unable to read header of 'setup'");
 	if (((long *) buf)[0]!=0x04100301)

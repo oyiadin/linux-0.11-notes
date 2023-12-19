@@ -39,6 +39,7 @@ LIBS	=lib/lib.a
 all:	Image
 
 Image: boot/bootsect boot/setup tools/system tools/build
+	# 分别编译组成镜像的几个部分，最后用 tools/build 组装到一起，构成镜像
 	tools/build boot/bootsect boot/setup tools/system $(ROOT_DEV) > Image
 	sync
 
