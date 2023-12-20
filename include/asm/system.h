@@ -1,5 +1,16 @@
+// __asm__ 的格式：
+/* __asm__ asm-qualifiers ( AssemblerTemplate
+                      : OutputOperands
+                      : InputOperands
+                      : Clobbers  // 被“破坏”的寄存器列表，我不知道这个单词怎么翻译比较合适
+                      // 意思就是这里列出的寄存器将被这一批指令所破坏
+                      // 编译器需要保证对应寄存器的值发生改变不会造成非预期的影响
+                      : GotoLabels)
+*/
+
 #define move_to_user_mode() \
-__asm__ ("movl %%esp,%%eax\n\t" \
+__asm__ ( \
+    "movl %%esp,%%eax\n\t" \
 	"pushl $0x17\n\t" \
 	"pushl %%eax\n\t" \
 	"pushfl\n\t" \

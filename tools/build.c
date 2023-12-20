@@ -124,9 +124,10 @@ int main(int argc, char ** argv)
 	fprintf(stderr,"Boot sector %d bytes.\n",i);
 	if (i != 512)
 		die("Boot block must be exactly 512 bytes");
-    // TODO: 这些魔数都有啥特殊含义
+    // boot/bootsect.s 里在 510 处写死了这个魔数
 	if ((*(unsigned short *)(buf+510)) != 0xAA55)
 		die("Boot block hasn't got boot flag (0xAA55)");
+    // 508 对应 boot/bootsect.s 的 root_dev 标识符
 	buf[508] = (char) minor_root;
 	buf[509] = (char) major_root;
     // 填入设备号后输出到 stdout（最后重定向到 Image 中）

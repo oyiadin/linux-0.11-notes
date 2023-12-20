@@ -15,6 +15,8 @@
 ! 从 bootsec 跳转而来
 ! 此文件此时已经被载入到内存里的 0x90200 处
 ! 同时，system 模块已经被载入到 0x10000 处
+! 此文件中将向 BIOS 查询一些硬件信息，并存储到 0x90000-0x901FF
+! 这块区域曾经放置着 bootsect，但现在 bootsect 的使命已经结束了，可以拿来复用，直接覆盖
 
 ! NOTE! These had better be the same as in bootsect.s!
 
@@ -121,7 +123,7 @@ is_disk1:
 ! first we move the system to it's rightful place
 
 ! 先将 system 模块从 0x10000 挪到 0x00000 处
-! 这样 system 模块里边的偏移就能直接对得上内存地址了
+! 这样 system 模块里边的绝对地址就能直接对得上内存地址了
 
 ! Q: 为什么不从一开始就在 bootsect 里把 system 载入到 0x00000 处呢？
 ! A: 因为在实模式中，内存起始处的 1KiB 空间会用来存放中断向量表
@@ -178,7 +180,7 @@ end_move:
 ! which is used for the internal hardware interrupts as well. We just
 ! have to reprogram the 8259's, and it isn't fun.
 
-! 不想读，这段弄懂了应该也没啥帮助，跳过
+! 不想读，这段弄懂了应该也没啥帮助，跟中断有关，应该是老设备的历史包袱，跳过
 
 	mov	al,#0x11		! initialization sequence
 	out	#0x20,al		! send it to 8259A-1
@@ -216,6 +218,7 @@ end_move:
 ! things as simple as possible, we do no register set-up or anything,
 ! we let the gnu-compiled 32-bit programs do that. We just jump to
 ! absolute address 0x00000, in 32-bit protected mode.
+! 这里要准备进入保护模式了
 
 	mov	ax,#0x0001	! protected mode (PE) bit
 	lmsw	ax		! This is it!

@@ -60,7 +60,7 @@ start:
 	sub	si,si			! ds:si = 0x07c0:0x0000
 	sub	di,di			! es:di = 0x9000:0x0000
 	rep
-	movw				! 移动1个字，重复256次
+	movw				! 移动1个字，重复256次（512 Bytes）
 	jmpi	go,INITSEG	! 跳到移动后的 go 标号处（0x90000+go）
 go:	mov	ax,cs			! 重设段寄存器 ds,es,ss，重设到当前代码所在段即 0x9000
 	mov	ds,ax
@@ -275,6 +275,7 @@ msg1:
 	.byte 13,10,13,10
 
 .org 508
+! 会被 tools/build.c 填充进真实的设备号
 root_dev:
 	.word ROOT_DEV
 boot_flag:

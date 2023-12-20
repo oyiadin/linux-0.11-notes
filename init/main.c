@@ -66,10 +66,11 @@ extern long startup_time;
 /*
  * This is set up by the setup-routine at boot-time
  */
+// 这些数据是 boot/setup.s 给放那的，而且也还没被覆盖到，可以很方便地直接拿来用
 #define EXT_MEM_K (*(unsigned short *)0x90002)
 #define DRIVE_INFO (*(struct drive_info *)0x90080)
+// 这个是主副设备号的信息，最开始由 tools/build 给放到镜像里，然后又被载入到内存中这个地址处
 #define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)
-// 这些数据是 boot/setup.s 给放那的，而且也还没被覆盖到，可以很方便地直接拿来用
 
 /*
  * Yeah, yeah, it's ugly, but I cannot find how to do this correctly
@@ -85,6 +86,8 @@ inb_p(0x71); \
 
 #define BCD_TO_BIN(val) ((val)=((val)&15) + ((val)>>4)*10)
 
+// 初始化时间
+// 仅仅是从 CMOS 读取时间信息，并存到 startup_time 变量里
 static void time_init(void)
 {
 	struct tm time;
@@ -113,6 +116,14 @@ static long main_memory_start = 0;
 
 struct drive_info { char dummy[32]; } drive_info;
 
+// 从 boot/head.s 跳转而来
+// 跳转到此的真实入口为其中 setup_paging 的 ret 语句
+
+// 这里有个有趣的问题：boot/head.s 跟 main.c 最终是被链接到一起的
+// 而众所周知，main 函数是 C 程序的入口，但最终为什么先执行的是 boot/head.s 呢？
+// 因为平常我们写的 main 函数实际上被 libc 套了一层，程序的真实入口不是 main 函数
+// 这里编译出来的目标文件很明显直接就是跑在裸机，外边不再有任何东西
+// 加上 boot/setup.s 那边是直接 jmp 过来，所以就以首地址（boot/head.s 链接在了最前边）作为入口了
 void main(void)		/* This really IS void, no error here. */
 {					/* The startup routine assumes (well, ...) this */
 // main 函数应该永远也不会返回

@@ -28,7 +28,7 @@ startup_32:
 	# 将 ss:esp 设为 _stack_start
 	# TODO: 在 kernel/sched.c#L72 找到了 stack_start 的定义，但是没看懂为什么要设置在那
 	#       随便找一块内存放着不就行了？
-	call setup_idt	# 将 IDT 表设置为，所有中断都由 ignore_int 来处理
+	call setup_idt	# 覆盖掉 setup 中临时的 IDT/GDT，所有中断都由 ignore_int 来处理
 	call setup_gdt
 
 	# 由于缓存的缘故，当段寄存器在"load"的时候，新 GDT 才会发生作用
@@ -179,6 +179,11 @@ after_page_tables:
 	pushl $0
 	pushl $L6		# return address for main, if it decides to.
 	pushl $_main 		# init/main.c 里边的 main 函数地址
+	# 上文是一个很典型的 cdecl 调用约定的结构
+	# https://en.wikipedia.org/wiki/X86_calling_conventions#cdecl
+	# 也就是： 参数3 参数2 参数1 返回地址
+	# 除了最后一个 _main 的值不属于 cdecl 约定
+	# 正常来说入栈了返回地址后应该就可以 jmp 过去了，详见下边的解释说明
 	jmp setup_paging
 	# 注意这里是 jmp，
 	# 配合上边手动 push 的地址
