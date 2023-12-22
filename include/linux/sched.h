@@ -1,6 +1,7 @@
 #ifndef _SCHED_H
 #define _SCHED_H
 
+// 最多只支持 64 个进程
 #define NR_TASKS 64
 #define HZ 100
 

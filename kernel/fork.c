@@ -135,7 +135,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	p->state = TASK_RUNNING;	/* do this last, just in case */
-	return last_pid;  // 用作父进程返回值，在 fork asm 里有处理
+	return last_pid;  // 子进程的 PID，用作父进程返回值，在 fork asm 里有处理
 }
 
 // 找到一个可用的 pid 并修改 last_pid，返回空闲的 task[] 下标

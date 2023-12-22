@@ -80,8 +80,11 @@ reschedule:
 .align 2
 
 # syscall 入口点
+# 在 sched_init 过程中会将这个函数设置为 0x80 号中断的处理函数
+#   set_system_gate(0x80,&system_call);
 # 除了 syscall 的逻辑之外，还会根据情况调用 schedule 跟 do_signal
 _system_call:
+    # 系统调用号越界检查
 	cmpl $nr_system_calls-1,%eax
 	ja bad_sys_call
 	push %ds
@@ -101,12 +104,15 @@ _system_call:
 	# LDT 第二项，RPL=0b11
 	mov %dx,%fs
 	call _sys_call_table(,%eax,4)	# 在 include/linux/sys.h 里边
+	# 先保存（备份）下系统调用的结果
 	pushl %eax
 	movl _current,%eax
+	# 0 代表 TASK_RUNNING
 	cmpl $0,state(%eax)		# state
 	# TODO: 我很奇怪这里为什么要判断 state
 	# 一个进程通过中断进入到了这里，在这之前 state 肯定是 TASK_RUNNING(0)
 	# 既然如此，为什么要判断状态并根据情况 reschedule 呢？
+	# --> 猜测是有些 syscall 会导致当前进程把 CPU 让渡出去
 	jne reschedule
 	cmpl $0,counter(%eax)		# counter
 	je reschedule
