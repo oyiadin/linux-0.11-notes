@@ -59,6 +59,7 @@ union task_union {
 
 static union task_union init_task = {INIT_TASK,};
 
+// jiffies 由定时器中断（_timer_interrupt）中自增
 long volatile jiffies=0;
 long startup_time=0;
 struct task_struct *current = &(init_task.task);
@@ -115,7 +116,7 @@ void schedule(void)
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 		if (*p) {
 			if ((*p)->alarm && (*p)->alarm < jiffies) {
-				// TODO: 这里为什么是小于
+                // 每次调度时会检查是否有进程 alarm 已到期，若有则记录 SIGALRM 到进程上
 				(*p)->signal |= (1<<(SIGALRM-1));
 				(*p)->alarm = 0;
 			}
@@ -129,10 +130,11 @@ void schedule(void)
 /* this is the scheduler proper: */
 
 	while (1) {
-		c = -1;  // TASK_RUNNING 进程中最大的 counter
-		next = 0;   // 对应的下标
+		c = -1;
+		next = 0;
 		i = NR_TASKS;
 		p = &task[NR_TASKS];
+        // 找出处于 TASK_RUNNING 状态且拥有最大的 counter 的进程
 		while (--i) {
 			if (!*--p)
 				continue;
@@ -144,13 +146,15 @@ void schedule(void)
 		// 当 counter 都小于 0 或没有 TASK_RUNNING 时
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 			if (*p)
-				// 根据情况重设各个进程的 count 值
+				// 所有进程的 counter 减半并加上 priority 的值
+                // 有一点 指数移动平均 的意思
 				(*p)->counter = ((*p)->counter >> 1) +
 						(*p)->priority;
 	}
 	switch_to(next);
 }
 
+// pause 重置当前进程状态后，立即尝试重新调度
 int sys_pause(void)
 {
 	current->state = TASK_INTERRUPTIBLE;
@@ -339,8 +343,11 @@ void do_timer(long cpl)
 	}
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
+    // 减少当前进程的 counter
+    // 调度时会以拥有最大 counter 的进程优先调度
+    // 也就是说，随着进程占用了越来越多的 CPU，其调度优先级会逐渐降低
 	if ((--current->counter)>0) return;
-	current->counter=0;
+	current->counter=0;  // 防止出现负值
 	if (!cpl) return;
 	schedule();
 }

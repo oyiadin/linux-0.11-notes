@@ -163,7 +163,7 @@ void main(void)		/* This really IS void, no error here. */
 	sti();				// 一切准备就绪，开中断
 	move_to_user_mode();
 	if (!fork()) {		/* we count on this going ok */
-	// 在子进程里边进行 init (task 1)
+	    // 在子进程里边进行 init (task 1)
 		init();
 	}
 /*
@@ -197,6 +197,7 @@ static char * envp_rc[] = { "HOME=/", NULL };
 static char * argv[] = { "-/bin/sh",NULL };
 static char * envp[] = { "HOME=/usr/root", NULL };
 
+// init 进程主函数 (pid=1)
 void init(void)
 {
 	int pid,i;

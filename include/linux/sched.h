@@ -81,7 +81,9 @@ struct tss_struct {
 struct task_struct {
 /* these are hardcoded - don't touch */
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	long counter;
+    // 在进程占用 CPU 的期间，其对应的 counter 会随着定时中断的触发而逐渐减少
+    // 可以类比为各个进程剩下的 CPU 配额
+    long counter;
 	long priority;	// 值越小，优先级越高
 	long signal;
 	struct sigaction sigaction[32];
@@ -225,7 +227,8 @@ __asm__("str %%ax\n\t" \
  */
 #define switch_to(n) /* n是对应进程的下标，不是pid */ {\
 struct {long a,b;} __tmp; \
-__asm__("cmpl %%ecx,_current\n\t" \
+__asm__( \
+    "cmpl %%ecx,_current\n\t" \
 	"je 1f\n\t" /* 如果目标进程已经是当前进程，就啥都不做直接跳出 */ \
 	"movw %%dx,%1\n\t" \
 	"xchgl %%ecx,_current\n\t" /* 原来 current 变量是在这里改的 */ \
