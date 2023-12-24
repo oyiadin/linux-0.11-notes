@@ -147,6 +147,8 @@ return -1; \
 // 系统调用结束后（eax 放置返回值，惯例），将返回值放在 __res 里边
 // 并根据 __res 的值做一个简单的处理
 
+// 所有系统调用都统一在宏里把返回值设置到了 errno
+
 #define _syscall1(type,name,atype,a) \
 type name(atype a) \
 { \

@@ -141,44 +141,57 @@ int sys_open(const char * filename,int flag,int mode)
 	struct file * f;
 	int i,fd;
 
+    // 只留下合法的、未被 umask 移除的几个比特位
 	mode &= 0777 & ~current->umask;
+    // 找到最小可用的 fd
 	for(fd=0 ; fd<NR_OPEN ; fd++)
 		if (!current->filp[fd])
 			break;
+    // 如果 fd 已经用完了，报错退出
 	if (fd>=NR_OPEN)
 		return -EINVAL;
+    // 默认关闭 close-on-exec 标志，也就是说 exec 时默认保留当前 fd
 	current->close_on_exec &= ~(1<<fd);
 	f=0+file_table;
+    // 找到全局 file_table 中第一个能用的条目
 	for (i=0 ; i<NR_FILE ; i++,f++)
+        // 用于 file_table 里的数据永远不会释放，但会以 f_count 作为判别该 struct file 是否有效的依据
 		if (!f->f_count) break;
+    // 如果 file_table 已经用完了，报错退出
 	if (i>=NR_FILE)
 		return -EINVAL;
+    // 将对应的 file_table 条目指针设置到当前进程的 filp(fd) 列表中，并自增对应的 f_count
 	(current->filp[fd]=f)->f_count++;
 	if ((i=open_namei(filename,flag,mode,&inode))<0) {
+        // 打开文件失败，需要把刚设置的 fd、f_count 回退清空
+        // 为什么不把 open_namei 放最上边，我估计是这一步比前边几步要重得多
+        // 因此尽量在前边先“快速失败”
 		current->filp[fd]=NULL;
 		f->f_count=0;
 		return i;
 	}
 /* ttys are somewhat special (ttyxx major==4, tty major==5) */
-	if (S_ISCHR(inode->i_mode))
-		if (MAJOR(inode->i_zone[0])==4) {
-			if (current->leader && current->tty<0) {
-				current->tty = MINOR(inode->i_zone[0]);
-				tty_table[current->tty].pgrp = current->pgrp;
-			}
-		} else if (MAJOR(inode->i_zone[0])==5)
-			if (current->tty<0) {
-				iput(inode);
-				current->filp[fd]=NULL;
-				f->f_count=0;
-				return -EPERM;
-			}
+	if (S_ISCHR(inode->i_mode)) {
+        if (MAJOR(inode->i_zone[0]) == 4) {
+            if (current->leader && current->tty < 0) {
+                current->tty = MINOR(inode->i_zone[0]);
+                tty_table[current->tty].pgrp = current->pgrp;
+            }
+        } else if (MAJOR(inode->i_zone[0]) == 5)
+            if (current->tty < 0) {
+                iput(inode);
+                current->filp[fd] = NULL;
+                f->f_count = 0;
+                return -EPERM;
+            }
+    }
 /* Likewise with block-devices: check for floppy_change */
-	if (S_ISBLK(inode->i_mode))
-		check_disk_change(inode->i_zone[0]);
+	if (S_ISBLK(inode->i_mode)) {
+        check_disk_change(inode->i_zone[0]);
+    }
 	f->f_mode = inode->i_mode;
 	f->f_flags = flag;
-	f->f_count = 1;
+	f->f_count = 1;  // 关联的 fd 数量，因为当前 file 结构体首次创建，因此固定只有 1
 	f->f_inode = inode;
 	f->f_pos = 0;
 	return (fd);
@@ -207,5 +220,10 @@ int sys_close(unsigned int fd)
 		return (0);
     iput(filp->f_inode);
 	return (0);
-    // TODO: 没看到 free(filp) 的动作，后边看下这一块的内存管理是怎么做的
+    // 可以看到并没有 free(filp) 的动作
+    // 因为这些 struct file 都放在一个全局的、固定大小的数组中
+    // 因此无需管理这一部分的内存
+    // 而且因为 f_count 是否等于 0 是判别对应 struct file 是否有效的依据
+    // 这里已经保证了 f_count 的值能被正确管理，其他字段就无需清空了（等下次 open 时再清空）
+    // TODO: 看看现在的内核是否还是这种比较原始（但非常简单好理解）的做法
 }

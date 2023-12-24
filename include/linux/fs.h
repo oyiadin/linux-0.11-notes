@@ -42,6 +42,7 @@ void buffer_init(long buffer_end);
 
 #define NR_OPEN 20
 #define NR_INODE 32
+// 当前全局最大可打开的文件数量为 64
 #define NR_FILE 64
 #define NR_SUPER 8
 #define NR_HASH 307
@@ -91,6 +92,7 @@ struct d_inode {
 };
 
 struct m_inode {
+    // 记录了 inode 类型（reg、dir、chr、blk 等）
 	unsigned short i_mode;
 	unsigned short i_uid;
 	unsigned long i_size;
@@ -114,6 +116,7 @@ struct m_inode {
 };
 
 struct file {
+    // 记录了 file 类型（reg、dir、chr、blk 等，从 inode->i_mode 拷贝而来）
 	unsigned short f_mode;
 	unsigned short f_flags;
     // 当前文件对象关联的 fd 数量
@@ -160,6 +163,9 @@ struct dir_entry {
 	char name[NAME_LEN];
 };
 
+// 全局的已打开文件列表
+// 可以看到下边这一系列全局的资源对象，其都有固定的数量上限，并不是动态扩缩容的
+// 这可以大幅度地降低内核的复杂度，在最初始版本时可以专注于更核心功能的开发
 extern struct m_inode inode_table[NR_INODE];
 extern struct file file_table[NR_FILE];
 extern struct super_block super_block[NR_SUPER];

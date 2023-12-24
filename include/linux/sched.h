@@ -102,6 +102,8 @@ struct task_struct {
 	unsigned short used_math;
 /* file system info */
 	int tty;		/* -1 if no tty, so it must be signed */
+    // umask 中为 1 的 bit 代表该位应当被关闭
+    // umask 应该理解为类似于“un mask bits”
 	unsigned short umask;  // 用作新建文件的默认权限
 	struct m_inode * pwd;
 	struct m_inode * root;
