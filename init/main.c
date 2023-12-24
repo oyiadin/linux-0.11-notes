@@ -209,23 +209,26 @@ void init(void)
 	(void) open("/dev/tty0",O_RDWR,0);	// stdin
 	(void) dup(0);				// stdout
 	(void) dup(0);				// stderr
-	// TODO: 不是很明白这里为什么要加上 (void) 对函数返回值进行强制类型转换
+	// Q: 不是很明白这里为什么要加上 (void) 对函数返回值进行强制类型转换
+    // A: 估计是为了让编译器不要警告返回值未使用
 	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
 		NR_BUFFERS*BLOCK_SIZE);
 	printf("Free mem: %d bytes\n\r",memory_end-main_memory_start);
 
 	if (!(pid=fork())) {
+        // 再次 fork，得到 pid 2，并执行用户配置的启动命令
 		close(0);
 		// 关闭 fd=0 然后立即打开 /etc/rc，stdin 就被重定向到这个文件了
 		if (open("/etc/rc",O_RDONLY,0))
-		// 有个小 trick，因为此时，返回的 fd 应当为 0，就可以以此判断出错与否了…
+		    // 有个小 trick，因为此时，返回的 fd 应当为 0，就可以以此判断出错与否了…
 			_exit(1);
 
 		// 注意，stdin 指向 /etc/rc，所以下面这行会从 /etc/rc 读取内容并执行
 		execve("/bin/sh",argv_rc,envp_rc);
+        // 这行 exit 预期永远不会执行，execve 后当前进程就被直接替换掉了
 		_exit(2);
 	}
-	// 子进程跑去执行 /etc/rc 了，父进程来到这里
+	// 子进程跑去执行 /etc/rc 了，父进程(pid=1)来到这里
 	// 不做啥事，就是等子进程
 	// 一旦子进程结束（/etc/rc 的内容执行完了），就进入到下边的 while(1)
 	// 如果 fork 失败了，也直接进入下边的 while(1)
@@ -261,6 +264,6 @@ void init(void)
 		// TODO: Linux 0.11 中，正常的关机流程是啥啊？
 	}
 
-	// 我觉得这行 exit 没用啊 =_=
+	// 这行应该没啥用，只是防御性编程
 	_exit(0);	/* NOTE! _exit, not exit() */
 }

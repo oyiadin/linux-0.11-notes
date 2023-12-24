@@ -93,6 +93,8 @@ struct task_struct {
 	int exit_code;
 	unsigned long start_code,end_code,end_data,brk,start_stack;
 	long pid,father,pgrp,session,leader;
+    // uid：用户的真实 ID
+    // euid：effective uid，用以鉴权的 ID。有时候由于 sudo 等原因可能临时提权
 	unsigned short uid,euid,suid;
 	unsigned short gid,egid,sgid;
 	long alarm;
@@ -104,6 +106,7 @@ struct task_struct {
 	struct m_inode * pwd;
 	struct m_inode * root;
 	struct m_inode * executable;
+    // exec 后是否自动关闭对应的 fd（这个字段是一个 bitmap）
 	unsigned long close_on_exec;
 	struct file * filp[NR_OPEN];
 /* ldt for this task 0 - zero 1 - cs 2 - ds&ss */

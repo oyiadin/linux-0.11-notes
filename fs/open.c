@@ -195,14 +195,17 @@ int sys_close(unsigned int fd)
 
 	if (fd >= NR_OPEN)
 		return -EINVAL;
+    // 强制删除对应的 close-on-exec 标志，防止 exec 时出错
 	current->close_on_exec &= ~(1<<fd);
 	if (!(filp = current->filp[fd]))
 		return -EINVAL;
 	current->filp[fd] = NULL;
 	if (filp->f_count == 0)
 		panic("Close: file count is 0");
+    // 如果还有 fd 关联着当前文件，直接返回
 	if (--filp->f_count)
 		return (0);
-	iput(filp->f_inode);
+    iput(filp->f_inode);
 	return (0);
+    // TODO: 没看到 free(filp) 的动作，后边看下这一块的内存管理是怎么做的
 }

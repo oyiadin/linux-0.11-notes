@@ -116,6 +116,7 @@ struct m_inode {
 struct file {
 	unsigned short f_mode;
 	unsigned short f_flags;
+    // 当前文件对象关联的 fd 数量
 	unsigned short f_count;
 	struct m_inode * f_inode;
 	off_t f_pos;
