@@ -146,14 +146,16 @@ int create_block(struct m_inode * inode, int block)
 {
 	return _bmap(inode,block,1);
 }
-		
+
+// 释放一个 inode，写回磁盘
+// TODO: 这块还读不太懂，后边得补充看一下
 void iput(struct m_inode * inode)
 {
 	if (!inode)
 		return;
 	wait_on_inode(inode);
 	if (!inode->i_count)
-		panic("iput: trying to free free inode");
+		panic("iput: trying to free a freed inode");
 	if (inode->i_pipe) {
 		wake_up(&inode->i_wait);
 		if (--inode->i_count)

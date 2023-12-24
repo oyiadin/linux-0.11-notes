@@ -44,10 +44,13 @@ static int permission(struct m_inode * inode,int mask)
 /* special case: not even root can read/write a deleted file */
 	if (inode->i_dev && !inode->i_nlinks)
 		return 0;
+    // 如果文件 owner 是当前用户，右移 6 位（使用 OWNER 部分）
 	else if (current->euid==inode->i_uid)
 		mode >>= 6;
+    // 如果文件 owner group 是当前组，右移 3 位（使用 GROUP 部分）
 	else if (current->egid==inode->i_gid)
 		mode >>= 3;
+    // 只取最后三位
 	if (((mode & mask & 0007) == mask) || suser())
 		return 1;
 	return 0;
@@ -225,6 +228,8 @@ static struct buffer_head * add_entry(struct m_inode * dir,
  * Getdir traverses the pathname until it hits the topmost directory.
  * It returns NULL on failure.
  */
+// 获得 pathname 中对应的最里层目录的 inode
+// 支持绝对路径，也支持相对路径
 static struct m_inode * get_dir(const char * pathname)
 {
 	char c;
@@ -238,24 +243,34 @@ static struct m_inode * get_dir(const char * pathname)
 		panic("No root inode");
 	if (!current->pwd || !current->pwd->i_count)
 		panic("No cwd inode");
+    // 起始位置，要么是 current->root，要么是 current->pwd
 	if ((c=get_fs_byte(pathname))=='/') {
 		inode = current->root;
 		pathname++;
-	} else if (c)
-		inode = current->pwd;
-	else
-		return NULL;	/* empty name is bad */
-	inode->i_count++;
+	} else if (c) {
+        inode = current->pwd;
+    } else {
+        return NULL;    /* empty name is bad */
+    }
+    inode->i_count++;
 	while (1) {
 		thisname = pathname;
+        // 当前 inode 不是目录，或者没有执行权限，则释放 inode 并返回空
 		if (!S_ISDIR(inode->i_mode) || !permission(inode,MAY_EXEC)) {
 			iput(inode);
 			return NULL;
 		}
+        // 找到下一个 / 符号，或者到空字符终止
+        // 这里如果用户程序恶意传入一个不以空字符结束的 pathname
+        // 应该可以导致内核越界读
 		for(namelen=0;(c=get_fs_byte(pathname++))&&(c!='/');namelen++)
 			/* nothing */ ;
-		if (!c)
+
+        // 找到了空字符，也就是说后边没有 / 符号了
+        // 也就是此时已找到最深层的目录 inode，返回该 inode 即可
+        if (!c)
 			return inode;
+        // 继续寻找下一层目录的 inode
 		if (!(bh = find_entry(&inode,thisname,namelen,&de))) {
 			iput(inode);
 			return NULL;
@@ -263,7 +278,9 @@ static struct m_inode * get_dir(const char * pathname)
 		inr = de->inode;
 		idev = inode->i_dev;
 		brelse(bh);
+        // 往深层遍历的过程中，会把前一层创建的 inode 对象进行释放
 		iput(inode);
+        // 继续往深层 inode 进发
 		if (!(inode = iget(idev,inr)))
 			return NULL;
 	}
@@ -275,6 +292,9 @@ static struct m_inode * get_dir(const char * pathname)
  * dir_namei() returns the inode of the directory of the
  * specified name, and the name within that directory.
  */
+// dir_namei 从 pathname 得到最里层目录的 inode
+// 以及文件名的指针、长度
+// 这个函数只是对 get_dir 的简单封装，获取 inode 的核心逻辑在后者里边
 static struct m_inode * dir_namei(const char * pathname,
 	int * namelen, const char ** name)
 {
@@ -282,10 +302,12 @@ static struct m_inode * dir_namei(const char * pathname,
 	const char * basename;
 	struct m_inode * dir;
 
+    // get_dir 取得最里层目录的 inode
 	if (!(dir = get_dir(pathname)))
 		return NULL;
 	basename = pathname;
-	while (c=get_fs_byte(pathname++))
+	// 找到最后一个 / 符号的位置，basename 从其后边第一个字符起始
+    while (c=get_fs_byte(pathname++))
 		if (c=='/')
 			basename=pathname;
 	*namelen = pathname-basename-1;
@@ -310,6 +332,9 @@ struct m_inode * namei(const char * pathname)
 
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return NULL;
+    // 没有文件名的特判
+    // TODO: 这个特判貌似导致了最里层的 inode 跳过了后边更新 i_atime 的逻辑
+    // 待确定是否是一个小 bug
 	if (!namelen)			/* special case: '/usr/' etc */
 		return dir;
 	bh = find_entry(&dir,basename,namelen,&de);
@@ -323,7 +348,10 @@ struct m_inode * namei(const char * pathname)
 	iput(dir);
 	dir=iget(dev,inr);
 	if (dir) {
+        // 更新 inode 的 access time
+        // 这里有个小细节是，只有最里层目录会更新，沿路上的其他目录不会更新 atime
 		dir->i_atime=CURRENT_TIME;
+        // 这里标记为 dirty 估计是因为 i_atime 发生了变化的缘故
 		dir->i_dirt=1;
 	}
 	return dir;

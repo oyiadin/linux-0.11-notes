@@ -239,6 +239,8 @@ int sys_mount(char * dev_name, char * dir_name, int rw_flag)
 	return 0;			/* we do that in umount */
 }
 
+// 系统 setup syscall 期间使用
+// 用以 mount 并设置好 root process (pid=0) 的 root inode
 void mount_root(void)
 {
 	int i,free;

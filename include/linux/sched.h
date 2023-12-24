@@ -106,6 +106,8 @@ struct task_struct {
     // umask 应该理解为类似于“un mask bits”
 	unsigned short umask;  // 用作新建文件的默认权限
 	struct m_inode * pwd;
+    // root 目录，chroot 有用
+    // 所有跟路径相关的操作都从这个 root 出发
 	struct m_inode * root;
 	struct m_inode * executable;
     // exec 后是否自动关闭对应的 fd（这个字段是一个 bitmap）

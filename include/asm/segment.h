@@ -1,3 +1,6 @@
+// TODO: 目前还不太明白这几个函数的作用
+// 我看到 open() 里的 pathname 字段会用到
+// 盲猜是内核态要读取用户态字符串所必需的特殊转换
 extern inline unsigned char get_fs_byte(const char * addr)
 {
 	unsigned register char _v;
